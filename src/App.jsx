@@ -160,7 +160,11 @@ export default function App() {
       style={{ backgroundImage: "url('/SIMACHECK-FONDO.webp')", backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
       <div className="relative z-10 w-full flex flex-col items-center justify-center gap-5">
-        <img src="/SIMA_CHECK-logo.png" alt="SIMA CHECK" className="h-16 w-auto object-contain drop-shadow-md" />
+        {/* El logo horizontal, no el isotipo: acá hay ancho de sobra y se lee
+            la marca completa. La palabra "CHECK" es BLANCA, así que este archivo
+            depende del fondo industrial de atrás — sobre una superficie clara
+            desaparecería media marca. Por eso vive fuera de la card. */}
+        <img src="/simacheck-logo.png" alt="SIMA CHECK" className="h-16 w-auto object-contain drop-shadow-md" />
         {/* El banner de demo se muestra en TODAS las pantallas del modo, la
             evaluación incluida — ver el comentario de BannerDemo. */}
         {esDemo && step !== STEPS.usuario && <BannerDemo onSalir={goHome} />}

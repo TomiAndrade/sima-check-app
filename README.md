@@ -105,8 +105,13 @@ Cada opción de `OPCIONES_IMAGEN` llega como `{ clave, url }`: se **muestra** la
 
 ## Imágenes propias de la app
 
-- Fondo de pantalla: `public/SIMACHECK-FONDO.webp` (generado con `npm run iconos` a partir de `SIMACHECK-FONDO.png`)
-- Logo: `public/SIMA_CHECK-logo.png`
-- Íconos de la PWA: `public/icons/`
+Los **dos archivos de marca**, cada uno con su lugar:
+
+- **`public/simacheck-logo.png`** — el logo horizontal (isotipo + "SIMA CHECK"). Es el que se ve dentro de la app, encima de la card. ⚠️ La palabra **"CHECK" es blanca**, así que sólo se lee sobre el fondo industrial: no sirve sobre una superficie clara, y por eso el logo va *fuera* de la card blanca y no adentro.
+- **`public/simacheck-logo-icon.png`** — sólo el isotipo (la C con el check), cuadrado y transparente. Es el origen de **todos** los íconos, no el logo horizontal: un logo 3:1 metido en un lienzo cuadrado queda diminuto y con el texto ilegible a 192 px.
+
+Todo lo demás se genera con **`npm run iconos`** y no se edita a mano: `public/icons/{icon-192,icon-512,icon-maskable-512}.png`, `public/apple-touch-icon.png` y `public/favicon-32.png`. El maskable y el de Apple van sobre **fondo blanco sólido** (Android recorta a la forma del launcher; iOS no respeta la transparencia y pintaría negro detrás).
+
+- Fondo de pantalla: `public/SIMACHECK-FONDO.webp`. El `.png` original (1,6 MB) **no está versionado**, así que `npm run iconos` saltea ese paso y conserva el `.webp` existente en vez de fallar.
 
 Las imágenes de preguntas y opciones **no viven acá** — las sirve el backend (`GET /uploads/*`) y la app sólo las resuelve por URL relativa (`core/api/imagenes.js`).
