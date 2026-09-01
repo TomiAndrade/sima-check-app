@@ -1,41 +1,38 @@
 import { useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { tabletApi } from './core/api/tablet'
+import { clearToken } from './core/api/client'
+import { apiDelModo, MODOS } from './core/modo'
 import UsuarioSelection from './pages/UsuarioSelection'
 import ModuleSelection from './pages/ModuleSelection'
 import Evaluation from './pages/Evaluation'
 import Results from './pages/Results'
 import BannerActualizacion from './components/BannerActualizacion'
+import BannerDemo from './components/BannerDemo'
 
 const STEPS = { usuario: 'usuario', module: 'module', evaluation: 'evaluation', results: 'results' }
 
 export default function App() {
   const [step, setStep] = useState(STEPS.usuario)
+  // 'alumno' | 'invitado'. Lo fija UsuarioSelection al identificarse y gobierna
+  // dos cosas: contra qué API se habla (apiDelModo) y qué dice la copy. El flujo
+  // de pantallas es EL MISMO en los dos — un modo invitado con su propio árbol de
+  // componentes sería la misma app dos veces, condenada a divergir.
+  const [modo, setModo] = useState(MODOS.alumno)
   const [usuario, setUsuario] = useState(null)
-  // El ítem elegido de GET /tablet/pendientes (asignacionId, moduloId,
-  // nombre, descripcion, version) — se sigue pasando a Evaluation/Results
-  // como prop `module`.
+  // El ítem elegido de la lista. En modo alumno es un pendiente de
+  // GET /tablet/pendientes (con asignacionId y reintentos); en modo invitado es
+  // un módulo de GET /tablet/invitado/modulos (sin ninguno de los dos).
   const [pendiente, setPendiente] = useState(null)
-  // Respuesta completa de GET /tablet/modulos/:moduloId/examen
-  // ({ moduloId, moduloVersionId, modulo, version, preguntas }).
+  // Respuesta completa del examen ({ moduloId, moduloVersionId, modulo,
+  // version, preguntas }). Misma forma en los dos modos.
   const [examen, setExamen] = useState(null)
-  // [{ preguntaId, respuestaDada }], armado en finishEvaluation y mandado
-  // en POST /tablet/sesiones junto con pendiente.asignacionId y
-  // examen.moduloVersionId.
   const [respuestas, setRespuestas] = useState([])
-  // Momento en que se terminó de responder (reloj del dispositivo, no
-  // autoritativo — el backend igual lo usa para medir duración).
   const [finalizadaEn, setFinalizadaEn] = useState(null)
-  // UUID por INTENTO, generado al cargar el examen (no al enviarlo). Un
-  // reintento de EVALUACIÓN (retry()) pide el examen de nuevo y por lo
-  // tanto genera uno nuevo; un reintento de ENVÍO (reintentarEnvio) manda
-  // el mismo, para que el backend deduplique si el POST anterior sí llegó.
+  // UUID por INTENTO, generado al cargar el examen (no al enviarlo). Sólo se usa
+  // en modo alumno: el endpoint de invitado no acepta claveIdempotencia (es el
+  // mecanismo del modo offline, que en la demo no aplica).
   const [claveIdempotencia, setClaveIdempotencia] = useState(null)
   const [iniciadaEn, setIniciadaEn] = useState(null)
-  // Resultado real de la rendición ({ sesionId, correctas, total,
-  // porcentaje, aprobada, umbralAprobacion }), lo que devuelve
-  // POST /tablet/sesiones. No hay forma de calcularlo local: el backend
-  // nunca manda respuestaCorrecta.
   const [result, setResult] = useState(null)
   const [cargandoExamen, setCargandoExamen] = useState(false)
   const [errorExamen, setErrorExamen] = useState('')
@@ -44,11 +41,14 @@ export default function App() {
 
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW()
 
+  const esDemo = modo === MODOS.invitado
+  const api = apiDelModo(modo)
+
   const cargarExamen = async (item) => {
     setCargandoExamen(true)
     setErrorExamen('')
     try {
-      const data = await tabletApi.examen(item.moduloId)
+      const data = await api.examen(item.moduloId)
       setPendiente(item)
       setExamen(data)
       setClaveIdempotencia(crypto.randomUUID())
@@ -56,8 +56,9 @@ export default function App() {
       setStep(STEPS.evaluation)
     } catch (err) {
       // El examen puede tirar 409 si el módulo se archivó (o se quedó sin
-      // preguntas activas) entre que se cargó la lista y se tocó el botón.
-      // No navega: se queda en la lista con el error a la vista.
+      // preguntas activas) entre que se cargó la lista y se tocó el botón; en
+      // modo demo, además, 404 si lo sacaron de la demo mientras tanto. No
+      // navega: se queda en la lista con el error a la vista.
       setErrorExamen(
         err.status === undefined
           ? 'No hay conexión con el servidor. Intentá de nuevo en un momento.'
@@ -70,16 +71,18 @@ export default function App() {
 
   const startEvaluation = (item) => cargarExamen(item)
 
-  // POST /tablet/sesiones. Recibe respuestas/momentoFin explícitos en vez de
-  // leerlos de `respuestas`/`finalizadaEn` (state) porque finishEvaluation los
-  // necesita ANTES de que el setState correspondiente se refleje en este
-  // closure; reintentarEnvio, en cambio, sí puede leerlos del state (ya están
-  // asentados de la primera vez).
+  // Recibe respuestas/momentoFin explícitos en vez de leerlos de
+  // `respuestas`/`finalizadaEn` (state) porque finishEvaluation los necesita
+  // ANTES de que el setState correspondiente se refleje en este closure;
+  // reintentarEnvio, en cambio, sí puede leerlos del state.
   const enviarResultado = async (respuestasPayload, momentoFin) => {
     setEnviandoResultado(true)
     setErrorEnvio('')
     try {
-      const resultado = await tabletApi.registrarSesion({
+      // Los campos que sólo existen en modo alumno se mandan siempre; el
+      // adaptador de `core/modo.js` es el que los descarta en modo invitado
+      // (mandarlos ahí daría 400 por forbidNonWhitelisted).
+      const resultado = await api.registrar({
         moduloVersionId: examen.moduloVersionId,
         asignacionId: pendiente.asignacionId,
         claveIdempotencia,
@@ -110,22 +113,20 @@ export default function App() {
     enviarResultado(respuestasPayload, momentoFin)
   }
 
-  // Reintentar el ENVÍO (no la evaluación): misma claveIdempotencia, mismas
-  // respuestas — si el POST anterior sí había llegado y solo se perdió la
-  // respuesta, el backend dedupe y devuelve la sesión ya guardada en vez de
-  // duplicarla.
+  // Reintentar el ENVÍO (no la evaluación): mismas respuestas y, en modo alumno,
+  // la misma claveIdempotencia — si el POST anterior sí había llegado y sólo se
+  // perdió la respuesta, el backend dedupe en vez de duplicar la sesión. En modo
+  // invitado no hay dedupe (ver el schema): un reintento que llegue dos veces
+  // deja dos filas en el reporte de demo, que es un costo aceptado.
   const reintentarEnvio = () => enviarResultado(respuestas, finalizadaEn)
 
   const retry = () => {
     setResult(null)
     setErrorEnvio('')
-    // cargarExamen genera una claveIdempotencia NUEVA — es por intento, no
-    // por módulo: reusar la anterior haría que el backend deduplique este
-    // reintento contra la sesión vieja.
     cargarExamen(pendiente)
   }
 
-  const goToModules = () => {
+  const limpiarIntento = () => {
     setPendiente(null)
     setExamen(null)
     setRespuestas([])
@@ -135,20 +136,21 @@ export default function App() {
     setResult(null)
     setErrorExamen('')
     setErrorEnvio('')
+  }
+
+  const goToModules = () => {
+    limpiarIntento()
     setStep(STEPS.module)
   }
 
   const goHome = () => {
+    limpiarIntento()
     setUsuario(null)
-    setPendiente(null)
-    setExamen(null)
-    setRespuestas([])
-    setFinalizadaEn(null)
-    setClaveIdempotencia(null)
-    setIniciadaEn(null)
-    setResult(null)
-    setErrorExamen('')
-    setErrorEnvio('')
+    // El token se descarta al volver al inicio, en los dos modos: el atril es
+    // compartido y el siguiente que se acerque tiene que empezar de cero. Sin
+    // esto, un invitado dejaría su token vivo (30 min) para el que venga atrás.
+    clearToken()
+    setModo(MODOS.alumno)
     setStep(STEPS.usuario)
   }
 
@@ -159,17 +161,27 @@ export default function App() {
     >
       <div className="relative z-10 w-full flex flex-col items-center justify-center gap-5">
         <img src="/SIMA_CHECK-logo.png" alt="SIMA CHECK" className="h-16 w-auto object-contain drop-shadow-md" />
+        {/* El banner de demo se muestra en TODAS las pantallas del modo, la
+            evaluación incluida — ver el comentario de BannerDemo. */}
+        {esDemo && step !== STEPS.usuario && <BannerDemo onSalir={goHome} />}
         {needRefresh && (step === STEPS.usuario || step === STEPS.module) && (
           <BannerActualizacion onActualizar={() => updateServiceWorker(true)} />
         )}
         {step === STEPS.usuario && (
-          <UsuarioSelection onSelect={(u) => { setUsuario(u); setStep(STEPS.module) }} />
+          <UsuarioSelection
+            onSelect={(u, modoElegido) => {
+              setUsuario(u)
+              setModo(modoElegido)
+              setStep(STEPS.module)
+            }}
+          />
         )}
         {step === STEPS.module && (
           <ModuleSelection
             usuario={usuario}
+            modo={modo}
             onSelect={startEvaluation}
-            onBack={() => setStep(STEPS.usuario)}
+            onBack={goHome}
             cargandoExamen={cargandoExamen}
             errorExamen={errorExamen}
           />
@@ -187,6 +199,7 @@ export default function App() {
           <Results
             usuario={usuario}
             module={pendiente}
+            modo={modo}
             result={result}
             enviando={enviandoResultado}
             errorEnvio={errorEnvio}
