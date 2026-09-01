@@ -1,23 +1,25 @@
 import { useEffect, useState } from 'react'
-import { tabletApi } from '../core/api/tablet'
+import { apiDelModo, claveDeItem, MODOS } from '../core/modo'
 import { avisoIntentos, motivoBloqueo } from '../core/reintentos'
 
-export default function ModuleSelection({ usuario, onSelect, onBack, cargandoExamen = false, errorExamen = '' }) {
+export default function ModuleSelection({ usuario, modo = MODOS.alumno, onSelect, onBack, cargandoExamen = false, errorExamen = '' }) {
   const [pendientes, setPendientes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
 
+  const esDemo = modo === MODOS.invitado
+
   useEffect(() => {
-    tabletApi
-      .pendientes()
+    apiDelModo(modo)
+      .listar()
       .then((data) => {
         setPendientes(data)
         setError(false)
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
-  }, [reloadToken])
+  }, [reloadToken, modo])
 
   const reintentar = () => {
     setLoading(true)
@@ -41,8 +43,15 @@ export default function ModuleSelection({ usuario, onSelect, onBack, cargandoExa
           <p className="text-slate-900 text-xl font-bold leading-tight">{usuario.name}</p>
         </div>
         <h2 className="text-slate-900 text-lg font-bold mt-4">
-          Capacitaciones pendientes{!loading && !error && ` (${pendientes.length})`}
+          {esDemo ? 'Elegí qué probar' : 'Capacitaciones pendientes'}
+          {!loading && !error && ` (${pendientes.length})`}
         </h2>
+        {esDemo && (
+          <p className="text-slate-500 text-sm mt-1 leading-snug">
+            Son evaluaciones reales de SIMA CHECK, con las mismas preguntas que rinde
+            el personal.
+          </p>
+        )}
       </div>
 
       {/* Content */}
@@ -56,7 +65,9 @@ export default function ModuleSelection({ usuario, onSelect, onBack, cargandoExa
         {!loading && error && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <p className="text-red-600 text-sm mb-4 max-w-xs leading-relaxed">
-              No pudimos cargar tus capacitaciones pendientes. Probá de nuevo.
+              {esDemo
+                ? 'No pudimos cargar las capacitaciones de la demostración. Probá de nuevo.'
+                : 'No pudimos cargar tus capacitaciones pendientes. Probá de nuevo.'}
             </p>
             <button
               onClick={reintentar}
@@ -78,10 +89,14 @@ export default function ModuleSelection({ usuario, onSelect, onBack, cargandoExa
               // El módulo bloqueado SIGUE listado: la obligación no desapareció,
               // lo que cambia es que todavía no se puede rendir. Ocultarlo haría
               // creer que ya no hay que hacerlo.
+              //
+              // En modo demo no hay bloqueo posible: `item.reintentos` no viene
+              // en la respuesta (un invitado no tiene historial contra el cual
+              // contar intentos) y las dos funciones devuelven null sin él.
               const bloqueo = motivoBloqueo(item.reintentos)
               const aviso = avisoIntentos(item.reintentos)
               return (
-                <div key={item.asignacionId}>
+                <div key={claveDeItem(item)}>
                   <button
                     onClick={() => onSelect(item)}
                     disabled={cargandoExamen || !!bloqueo}
@@ -110,12 +125,20 @@ export default function ModuleSelection({ usuario, onSelect, onBack, cargandoExa
           </div>
         )}
 
+        {/* El vacío del modo demo NO puede reusar el "¡Al día!" del alumno: acá
+            no significa que la persona esté al día sino que todavía nadie marcó
+            ningún módulo como disponible para la demostración, que es una
+            configuración faltante y no un logro. */}
         {!loading && !error && pendientes.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="text-5xl mb-4">✓</div>
-            <p className="text-slate-900 text-lg font-bold mb-2">¡Al día!</p>
+            <div className="text-5xl mb-4">{esDemo ? '🔒' : '✓'}</div>
+            <p className="text-slate-900 text-lg font-bold mb-2">
+              {esDemo ? 'No hay nada para probar' : '¡Al día!'}
+            </p>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
-              No tenés capacitaciones pendientes asignadas.
+              {esDemo
+                ? 'Todavía no hay ninguna capacitación habilitada para la demostración.'
+                : 'No tenés capacitaciones pendientes asignadas.'}
             </p>
             <button
               onClick={onBack}

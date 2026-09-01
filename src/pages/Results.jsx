@@ -1,11 +1,14 @@
 import Button from '../components/Button'
+import { MODOS } from '../core/modo'
 import { motivoBloqueo } from '../core/reintentos'
 
-export default function Results({ usuario, module: mod, result, enviando, errorEnvio, onReintentarEnvio, onRetry, onGoToModules, onHome }) {
+export default function Results({ usuario, module: mod, modo = MODOS.alumno, result, enviando, errorEnvio, onReintentarEnvio, onRetry, onGoToModules, onHome }) {
   // El aprobado/desaprobado sale de `aprobada` (el backend congela el umbral
   // por sesión, ver Sesion.umbralAprobacion) — nunca se recalcula contra un
-  // 70 hardcodeado del lado del cliente.
+  // 70 hardcodeado del lado del cliente. Vale igual en modo demo: lo corrige el
+  // mismo código del backend, así que el resultado es el real.
   const aprobada = result?.aprobada
+  const esDemo = modo === MODOS.invitado
   const bloqueoReintento = motivoBloqueo(result?.reintentos)
 
   const feedbackMsg = result
@@ -42,6 +45,14 @@ export default function Results({ usuario, module: mod, result, enviando, errorE
           <div className={`px-8 py-3 rounded-full text-xl font-black mb-4 text-center mx-auto w-fit ${aprobada ? 'bg-emerald-500 text-white' : 'bg-red-600 text-white'}`}>
             {aprobada ? '✓ APROBADO' : '✗ DESAPROBADO'}
           </div>
+          {/* Debajo del badge y no en el banner de arriba: un "APROBADO" verde
+              en grande es justo el momento en que alguien puede creer que quedó
+              certificado, así que la aclaración va pegada a él. */}
+          {esDemo && (
+            <p className="text-amber-700 text-sm font-semibold text-center mb-4">
+              Resultado de demostración — no queda registrado
+            </p>
+          )}
         </>
       )}
 
@@ -71,7 +82,7 @@ export default function Results({ usuario, module: mod, result, enviando, errorE
       {!enviando && !errorEnvio && result && (
         <div className="space-y-3">
           <Button variant="primary" onClick={onGoToModules} fullWidth>
-            Mis capacitaciones
+            {esDemo ? 'Probar otra' : 'Mis capacitaciones'}
           </Button>
           {/* Reintentar es SÓLO para quien desaprobó. Aprobado, el módulo ya
               salió de pendientes y volver a rendirlo no cambia nada: la
@@ -83,17 +94,24 @@ export default function Results({ usuario, module: mod, result, enviando, errorE
 
               El estado de reintentos lo recalcula el backend DESPUÉS de
               registrar esta sesión. Si ya no se puede, se dice por qué en vez de
-              ofrecer un botón que devuelve 409. */}
-          {!aprobada &&
-            (bloqueoReintento ? (
+              ofrecer un botón que devuelve 409.
+
+              En modo DEMO el reintento se ofrece SIEMPRE, aprobado o no, y los
+              dos motivos de arriba desaparecen: no hay obligación que se cumpla
+              con la aprobación (la demo no toca ninguna asignación), el módulo
+              no sale de ninguna lista, y no hay tope de intentos que contar
+              porque no hay persona contra la cual contarlos. Volver a probar es
+              exactamente lo que se espera que haga alguien mirando la app. */}
+          {(esDemo || !aprobada) &&
+            (bloqueoReintento && !esDemo ? (
               <p className="text-slate-500 text-sm leading-relaxed text-center px-2">{bloqueoReintento}</p>
             ) : (
               <Button variant="secondary" onClick={onRetry} fullWidth>
-                Reintentar evaluación
+                {esDemo ? 'Volver a rendir esta' : 'Reintentar evaluación'}
               </Button>
             ))}
           <Button variant="secondary" onClick={onHome} fullWidth>
-            Volver al inicio
+            {esDemo ? 'Salir de la demostración' : 'Volver al inicio'}
           </Button>
         </div>
       )}

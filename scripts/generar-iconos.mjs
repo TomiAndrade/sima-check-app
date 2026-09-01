@@ -1,25 +1,48 @@
 import { mkdir, stat } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const raiz = join(__dirname, '..')
-const origen = join(raiz, 'public', 'SIMA_CHECK-logo.png')
+
+// Los DOS archivos de marca, y cada uno tiene su lugar:
+//
+//   simacheck-logo.png       el logo horizontal completo (isotipo + "SIMA
+//                            CHECK"). Es el que se muestra dentro de la app,
+//                            encima de la card. OJO: la palabra "CHECK" es
+//                            BLANCA, así que sólo se lee sobre el fondo
+//                            industrial — no sirve sobre una superficie clara.
+//   simacheck-logo-icon.png  sólo el isotipo (la C con el check), cuadrado y
+//                            con fondo transparente. Es el que va en todos los
+//                            íconos.
+//
+// El ícono sale del ISOTIPO y no del logo horizontal, que es lo que se hacía
+// antes: un logo 3:1 metido en un lienzo cuadrado queda diminuto, con dos
+// bandas de aire arriba y abajo, y el texto ilegible a 192 px. El isotipo llena
+// el cuadrado y se reconoce en la pantalla de inicio de una tablet, que es
+// donde este ícono se mira de verdad.
+const logo = join(raiz, 'public', 'simacheck-logo.png')
+const isotipo = join(raiz, 'public', 'simacheck-logo-icon.png')
 const carpetaIcons = join(raiz, 'public', 'icons')
 const fondoOrigen = join(raiz, 'public', 'SIMACHECK-FONDO.png')
 const fondoDestino = join(raiz, 'public', 'SIMACHECK-FONDO.webp')
 
 async function generarTransparente(destino, tamanio) {
-  await sharp(origen)
+  await sharp(isotipo)
     .resize(tamanio, tamanio, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toFile(destino)
 }
 
+// Fondo blanco sólido y el logo a `proporcionLogo` del lienzo. Es lo que pide
+// un ícono maskable: Android lo recorta a la forma del launcher (círculo,
+// squircle…), y con fondo transparente y el logo a tamaño completo los bordes
+// quedan cortados.
 async function generarSobreFondoBlanco(destino, tamanio, proporcionLogo) {
   const logoTamanio = Math.round(tamanio * proporcionLogo)
-  const logo = await sharp(origen)
+  const capa = await sharp(isotipo)
     .resize(logoTamanio, logoTamanio, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .toBuffer()
 
@@ -31,27 +54,45 @@ async function generarSobreFondoBlanco(destino, tamanio, proporcionLogo) {
       background: { r: 255, g: 255, b: 255, alpha: 1 },
     },
   })
-    .composite([{ input: logo, gravity: 'center' }])
+    .composite([{ input: capa, gravity: 'center' }])
     .png()
     .toFile(destino)
 }
 
+// El fondo original (1,6 MB) no está versionado — sólo su .webp, que es el que
+// consume la app. Por eso el paso se saltea en vez de fallar: sin esto, `npm
+// run iconos` explota en un clone limpio y no llega a generar ningún ícono.
 async function generarFondoWebp() {
+  if (!existsSync(fondoOrigen)) {
+    console.log('· SIMACHECK-FONDO.png no está: se conserva el .webp existente')
+    return
+  }
   await sharp(fondoOrigen).webp({ quality: 80 }).toFile(fondoDestino)
+  const { size } = await stat(fondoDestino)
+  console.log(`· Fondo convertido a SIMACHECK-FONDO.webp (${(size / 1024).toFixed(1)} KB)`)
 }
 
 async function main() {
+  if (!existsSync(isotipo)) {
+    throw new Error(`Falta ${isotipo}: es el origen de todos los íconos`)
+  }
   await mkdir(carpetaIcons, { recursive: true })
 
   await generarTransparente(join(carpetaIcons, 'icon-192.png'), 192)
   await generarTransparente(join(carpetaIcons, 'icon-512.png'), 512)
   await generarSobreFondoBlanco(join(carpetaIcons, 'icon-maskable-512.png'), 512, 0.6)
+  // apple-touch-icon: iOS NO respeta la transparencia (pinta negro detrás), así
+  // que va sobre blanco sí o sí, y con menos aire que el maskable porque iOS
+  // recorta mucho menos (sólo redondea las esquinas).
   await generarSobreFondoBlanco(join(raiz, 'public', 'apple-touch-icon.png'), 180, 0.8)
+  // Favicon de la pestaña. PNG y no SVG porque el isotipo es un PNG y no hay
+  // versión vectorial; 32 px es el tamaño que usan los navegadores de escritorio.
+  await generarTransparente(join(raiz, 'public', 'favicon-32.png'), 32)
   await generarFondoWebp()
 
-  const { size } = await stat(fondoDestino)
-  console.log('Íconos generados en public/icons/ y public/apple-touch-icon.png')
-  console.log(`Fondo convertido a public/SIMACHECK-FONDO.webp (${(size / 1024).toFixed(1)} KB)`)
+  console.log('Íconos generados desde public/simacheck-logo-icon.png:')
+  console.log('  public/icons/{icon-192,icon-512,icon-maskable-512}.png')
+  console.log('  public/apple-touch-icon.png · public/favicon-32.png')
 }
 
 main().catch((err) => {
