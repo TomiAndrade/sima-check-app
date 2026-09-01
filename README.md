@@ -9,6 +9,7 @@ Salió del monorepo `sima-training` como repo propio (`git subtree split`, conse
 - Vite + React, sin router (el flujo es un state machine de 4 pasos en `App.jsx`)
 - Tailwind CSS v3
 - **Conectada al backend real**: login por DNI contra `POST /tablet/login`, capacitaciones pendientes y examen contra `/tablet/pendientes` y `/tablet/modulos/:id/examen`, resultado calculado por el backend vía `POST /tablet/sesiones` — la app nunca conoce la respuesta correcta ni calcula el score
+- **Dos modos en la misma app**: el de siempre (ingreso por DNI, rinde de verdad) y el **modo invitado**, para que alguien de afuera pueda probarla dando sólo su nombre — ver la sección más abajo
 - **PWA instalable** (`vite-plugin-pwa`): manifest, íconos, precache del shell y banner de actualización
 
 ## Correr en dev
@@ -46,14 +47,26 @@ src/
 │   ├── api/         client.js (fetch + token en sessionStorage, no localStorage:
 │   │                 el atril es compartido y el token muere al cerrar la pestaña) ·
 │   │                 tablet.js (login/pendientes/examen/registrarSesion) ·
+│   │                 invitado.js (el MODO INVITADO: namespace y token propios
+│   │                 en el backend, archivo aparte porque son dos contratos
+│   │                 que no se mezclan) ·
 │   │                 imagenes.js (resuelve { clave, url } contra BASE_URL)
+│   ├── modo.js        MODOS.alumno / MODOS.invitado y apiDelModo(): las dos
+│   │                  APIs bajo una misma forma, para que el flujo de pantallas
+│   │                  sea UNO SOLO. Acá y en ningún otro lado se resuelven las
+│   │                  diferencias de contrato (pendientes vs módulos de demo, y
+│   │                  qué campos lleva cada POST)
 │   └── reintentos.js  Traduce a texto el estado de reintentos que manda el
 │                      backend (puedeRendir/motivo/intentosRestantes/
 │                      proximoIntentoEn) — la regla la decide el backend
 │                      siempre, esto sólo evita ofrecer un botón que daría 409
 ├── components/       Button · ProgressBar · QuestionCard (tipos VERDADERO_FALSO /
-│                     OPCIONES_IMAGEN / texto libre) · BannerActualizacion
+│                     OPCIONES_IMAGEN / texto libre) · BannerActualizacion ·
+│                     BannerDemo (fijo en TODAS las pantallas del modo invitado,
+│                     la evaluación incluida — al revés que el de actualización)
 └── pages/            UsuarioSelection · ModuleSelection · Evaluation · Results
+                      (las cuatro sirven a los dos modos: la copy la deciden
+                      mirando el prop `modo`)
 ```
 
 ## Flujo de la app
@@ -64,6 +77,21 @@ src/
 4. **Resultado** (`Results`) — `POST /tablet/sesiones` manda las respuestas crudas; **el backend calcula el score y el aprobado/desaprobado**, la app nunca lo hace localmente porque nunca recibe la respuesta correcta. "Reintentar evaluación" sólo se ofrece si desaprobó y todavía tiene intentos disponibles
 
 Si la persona aprueba, el módulo sale de "pendientes" (la `Asignacion` sigue vigente, lo que cambia es que ya tiene una sesión aprobada). Si desaprueba, sigue en la lista y puede reintentar mientras no agote el tope de intentos.
+
+## Modo invitado
+
+Segundo camino desde la pantalla de ingreso (**"Probar la app sin ingresar"**): alguien que no está en el sistema da su nombre y rinde un módulo real, para ver de qué se trata. Habla contra `/tablet/invitado/*` con un token propio (`tipo: 'invitado'`, TTL 30 min, **sin `sub`** — no hay usuario al que apunte), y los endpoints de alumno lo rechazan igual que los de invitado rechazan un token de alumno.
+
+Qué cambia respecto del flujo de arriba:
+
+1. **Ingreso** — el nombre se pide **antes** de probar, no después de rendir: así el flujo queda idéntico al del alumno y el nombre puede viajar **firmado dentro del token**, de modo que el POST del resultado no puede mentir sobre a nombre de quién quedó (mismo principio que el `usuarioId`).
+2. **Lista** — `GET /tablet/invitado/modulos` devuelve los módulos que un admin tildó como `demoPublico` desde el backoffice, no las asignaciones de nadie. Sin tope de intentos: no hay persona contra la cual contarlos.
+3. **Evaluación** — idéntica. Son las preguntas reales del módulo, con el mismo sorteo.
+4. **Resultado** — lo calcula el mismo `corregir.ts` del backend y se guarda en `sesiones_invitado`, una tabla aparte de `sesiones`. **No cuenta como capacitación**, no toca ninguna `Asignacion`, y "volver a rendir" se ofrece siempre (aprobado o no).
+
+Lo que el modo cuida no es el acceso sino la **confusión**: que alguien del sistema entre por acá, rinda entera una evaluación y crea que quedó registrada. Por eso el DNI conserva toda la jerarquía visual, todo el recorrido de demo va en ámbar en vez del rojo de la marca, `BannerDemo` está fijo en todas las pantallas (la evaluación incluida) y la aclaración del resultado va pegada al badge de APROBADO.
+
+El porqué completo de cada decisión está en `docs/decisiones/tablet.md` del repo `sima-training`.
 
 ## Tipos de pregunta
 
