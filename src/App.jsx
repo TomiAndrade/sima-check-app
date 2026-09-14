@@ -40,6 +40,10 @@ export default function App() {
   // usan sólo para la pantalla de repaso — el resultado que vale lo sigue
   // calculando el backend al registrar la sesión.
   const [incorrectas, setIncorrectas] = useState([])
+  // Cuántas respuestas no se pudieron corregir en el momento (sin señal, y ni
+  // con reintentos). El repaso lo aclara: si alguna de ésas estuvo mal, no está
+  // en la lista de incorrectas.
+  const [sinVerificar, setSinVerificar] = useState(0)
   const [cargandoExamen, setCargandoExamen] = useState(false)
   const [errorExamen, setErrorExamen] = useState('')
   const [enviandoResultado, setEnviandoResultado] = useState(false)
@@ -108,13 +112,14 @@ export default function App() {
     }
   }
 
-  const finishEvaluation = (answers, incorrectasDelIntento) => {
+  const finishEvaluation = (answers, { incorrectas: incorrectasDelIntento, sinVerificar: noVerificadas }) => {
     // answers = { [preguntaId]: respuestaDada }, ver Evaluation.jsx — no
     // depende del orden en que se hayan recorrido las preguntas.
     const respuestasPayload = examen.preguntas.map((q) => ({ preguntaId: q.id, respuestaDada: answers[q.id] ?? null }))
     const momentoFin = new Date()
     setRespuestas(respuestasPayload)
     setIncorrectas(incorrectasDelIntento)
+    setSinVerificar(noVerificadas)
     setFinalizadaEn(momentoFin)
     setStep(STEPS.results)
     enviarResultado(respuestasPayload, momentoFin)
@@ -144,6 +149,7 @@ export default function App() {
   const retry = () => {
     setResult(null)
     setIncorrectas([])
+    setSinVerificar(0)
     setErrorEnvio('')
     cargarExamen(pendiente)
   }
@@ -153,6 +159,7 @@ export default function App() {
     setExamen(null)
     setRespuestas([])
     setIncorrectas([])
+    setSinVerificar(0)
     setFinalizadaEn(null)
     setClaveIdempotencia(null)
     setIniciadaEn(null)
@@ -227,6 +234,7 @@ export default function App() {
           <Repaso
             module={pendiente}
             incorrectas={incorrectas}
+            sinVerificar={sinVerificar}
             onVolver={() => setStep(STEPS.results)}
           />
         )}
@@ -240,6 +248,7 @@ export default function App() {
             errorEnvio={errorEnvio}
             onReintentarEnvio={reintentarEnvio}
             incorrectas={incorrectas}
+            sinVerificar={sinVerificar}
             onRepasar={() => setStep(STEPS.repaso)}
             onRetry={retry}
             onGoToModules={goToModules}

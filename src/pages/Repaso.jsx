@@ -41,21 +41,48 @@ function Respuesta({ pregunta, valor, rotulo, tono }) {
  * rendía (ver Evaluation.jsx), así que el enunciado, lo que eligió y la correcta
  * ya están en memoria — y `GET /sesiones/:id`, que es el único endpoint que
  * devuelve `respuestaCorrecta`, sigue siendo exclusivo del backoffice.
+ *
+ * `sinVerificar` son las respuestas que no se pudieron corregir en el momento
+ * (sin señal, y ni con reintentos). Se avisan arriba de todo porque esta lista
+ * es lo único que la persona va a leer sobre su examen: si una de ésas estuvo
+ * mal, no está acá, y callarlo hace que el repaso mienta por omisión.
  */
-export default function Repaso({ module: mod, incorrectas, onVolver }) {
+export default function Repaso({ module: mod, incorrectas, sinVerificar = 0, onVolver }) {
+  const hayIncorrectas = incorrectas.length > 0
   return (
     <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
       <div className="px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
         <p className="text-red-600 font-semibold text-sm">{mod.nombre}</p>
         <h2 className="text-slate-900 text-xl font-bold mt-1">
-          {incorrectas.length === 1
-            ? 'La pregunta que fallaste'
-            : `Las ${incorrectas.length} preguntas que fallaste`}
+          {!hayIncorrectas
+            ? 'No pudimos revisar tu examen'
+            : incorrectas.length === 1
+              ? 'La pregunta que fallaste'
+              : `Las ${incorrectas.length} preguntas que fallaste`}
         </h2>
-        <p className="text-slate-500 text-sm mt-1">Repasá esto antes de volver a rendir.</p>
+        {hayIncorrectas && (
+          <p className="text-slate-500 text-sm mt-1">Repasá esto antes de volver a rendir.</p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        {/* Ámbar: es una advertencia sobre lo que falta, no un error de la
+            persona. Va arriba del listado y no al pie porque condiciona cómo
+            hay que leer todo lo de abajo. */}
+        {sinVerificar > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-amber-800 text-sm font-semibold leading-snug">
+              {sinVerificar === 1
+                ? 'Una pregunta no se pudo verificar por problemas de conexión.'
+                : `${sinVerificar} preguntas no se pudieron verificar por problemas de conexión.`}
+            </p>
+            <p className="text-amber-700 text-sm leading-snug mt-1">
+              {hayIncorrectas
+                ? 'Tu respuesta quedó registrada igual, pero si alguna de ésas estuvo mal no aparece en esta lista.'
+                : 'Tus respuestas quedaron registradas igual, pero no pudimos armar el repaso.'}
+            </p>
+          </div>
+        )}
         {incorrectas.map(({ pregunta, respuestaDada, respuestaCorrecta }, i) => (
           <div key={pregunta.id} className="space-y-3">
             <div className="flex gap-3">

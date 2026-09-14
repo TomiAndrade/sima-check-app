@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import QuestionCard from '../components/QuestionCard'
 import ProgressBar from '../components/ProgressBar'
 import { FEEDBACK } from '../core/feedbackRespuesta'
+import { conReintentos } from '../core/reintentarRequest'
 
 // Cuánto queda el color en pantalla antes de pasar a la pregunta siguiente. Se
 // cuenta desde que se PINTA, no desde el toque: la corrección es un request, y
@@ -24,6 +25,10 @@ export default function Evaluation({ usuario, module: mod, questions, onCorregir
   // porque nada de esta pantalla se re-renderiza por ellas: se acumulan acá y
   // se leen una sola vez, al terminar.
   const incorrectasRef = useRef([])
+  // Cuántas no se pudieron corregir ni después de reintentar. Se cuentan para
+  // avisarlo en el repaso: sin esto, una pregunta que se falló y no se pudo
+  // verificar simplemente no aparece, y el repaso miente por omisión.
+  const sinVerificarRef = useRef(0)
   const timerRef = useRef(null)
   const montadoRef = useRef(true)
 
@@ -71,7 +76,11 @@ export default function Evaluation({ usuario, module: mod, questions, onCorregir
 
     let veredicto = FEEDBACK.sinVerificar
     try {
-      const { correcta, respuestaCorrecta } = await onCorregir(pregunta.id, answer)
+      // Dos reintentos antes de rendirse: la mayoría de los fallos de red a
+      // mitad de un examen son momentáneos (ver reintentarRequest.js).
+      const { correcta, respuestaCorrecta } = await conReintentos(() =>
+        onCorregir(pregunta.id, answer),
+      )
       veredicto = correcta ? FEEDBACK.correcta : FEEDBACK.incorrecta
       if (!correcta) {
         incorrectasRef.current.push({
@@ -81,10 +90,13 @@ export default function Evaluation({ usuario, module: mod, questions, onCorregir
         })
       }
     } catch {
-      // Sin señal no se pinta color y la pregunta no entra al repaso (no
-      // sabemos si estuvo mal), pero la respuesta YA quedó tomada y viaja igual
-      // al cerrar la sesión. La evaluación no se corta por un hipo de red: el
-      // resultado que vale lo corrige el backend al registrar, como siempre.
+      // Ni con reintentos. La respuesta YA quedó tomada y viaja igual al cerrar
+      // la sesión —la evaluación no se corta por esto, y el resultado que vale
+      // lo calcula el backend al registrar, como siempre—, pero no sabemos si
+      // estuvo bien: no se pinta color y se cuenta como no verificada para que
+      // el repaso pueda decirlo. Sin cartel ni interrupción acá: la persona está
+      // rindiendo, no es el momento de explicarle un problema de red.
+      sinVerificarRef.current += 1
     }
     if (!montadoRef.current) return
 
@@ -92,7 +104,10 @@ export default function Evaluation({ usuario, module: mod, questions, onCorregir
     timerRef.current = setTimeout(
       () => {
         if (isLast) {
-          onFinish(siguientes, incorrectasRef.current)
+          onFinish(siguientes, {
+            incorrectas: incorrectasRef.current,
+            sinVerificar: sinVerificarRef.current,
+          })
         } else {
           setFeedback(null)
           setCurrentIndex((i) => i + 1)
