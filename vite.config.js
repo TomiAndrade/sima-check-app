@@ -74,11 +74,24 @@ export default defineConfig({
   // (que es donde la PWA existe de verdad) y `server` el dev server. Vite valida
   // el header Host en los dos, así que con `allowedHosts` sólo en `preview` un
   // `npm run dev` detrás del túnel se cae con "This host is not allowed".
+  //
+  // El PUERTO va fijo y con strictPort, y no es cosmético: el backoffice es otro
+  // dev server de Vite y los dos tomaban el default 5173, así que el segundo en
+  // arrancar saltaba solo a 5174 y cuál era cuál dependía del orden. Con el
+  // puerto fijo cada app está siempre en la misma URL; con strictPort, si está
+  // ocupado el server falla y lo decís vos, en vez de mudarse en silencio a un
+  // puerto que nadie tiene anotado. (Backoffice 5173 · app tablet 5174.)
   server: {
+    port: 5174,
+    strictPort: true,
     allowedHosts: ['.trycloudflare.com'],
     proxy: proxyDemo,
   },
   preview: {
+    // Mismo criterio para el build servido: el preview del backoffice se queda
+    // con el 4173 de Vite.
+    port: 4174,
+    strictPort: true,
     allowedHosts: ['.trycloudflare.com'],
     proxy: proxyDemo,
   },
