@@ -19,6 +19,10 @@ export const MODOS = { alumno: 'alumno', invitado: 'invitado' }
 //   - `listar()` sale de endpoints distintos (`/pendientes` vs
 //     `/invitado/modulos`) y devuelve formas parecidas pero no iguales: un
 //     pendiente trae `asignacionId` y `reintentos`, un módulo de demo no.
+//   - `corregir()` es el ÚNICO de los tres que NO difiere entre modos: mismo
+//     payload y misma respuesta, sólo cambia la URL. Igual pasa por el
+//     adaptador y no se llama directo, porque el token que lleva cada request
+//     sí es de un modo o del otro.
 //   - `registrar()` arma payloads distintos: el de invitado no lleva
 //     `asignacionId` ni `claveIdempotencia`, y mandarlos daría 400 (el DTO del
 //     backend corre con forbidNonWhitelisted).
@@ -30,6 +34,7 @@ export function apiDelModo(modo) {
     return {
       listar: () => invitadoApi.modulos(),
       examen: (moduloId) => invitadoApi.examen(moduloId),
+      corregir: (payload) => invitadoApi.corregir(payload),
       registrar: ({ moduloVersionId, iniciadaEn, finalizadaEn, respuestas }) =>
         invitadoApi.registrarSesion({
           moduloVersionId,
@@ -42,6 +47,7 @@ export function apiDelModo(modo) {
   return {
     listar: () => tabletApi.pendientes(),
     examen: (moduloId) => tabletApi.examen(moduloId),
+    corregir: (payload) => tabletApi.corregir(payload),
     registrar: (payload) => tabletApi.registrarSesion(payload),
   }
 }

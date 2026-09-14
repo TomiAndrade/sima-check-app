@@ -12,6 +12,9 @@ export const invitadoApi = {
   login: (nombre) => api.post('/tablet/invitado', { nombre }, { auth: false }),
   modulos: () => api.get('/tablet/invitado/modulos'),
   examen: (moduloId) => api.get(`/tablet/invitado/modulos/${moduloId}/examen`),
+  // Espejo exacto del de alumno: la demo corrige igual y con la misma
+  // función del backend.
+  corregir: (payload) => api.post('/tablet/invitado/corregir', payload),
   // El nombre NO va en el payload: viaja firmado dentro del token y el backend
   // lo saca de ahí. Tampoco van `asignacionId` (un invitado no cumple ninguna
   // obligación) ni `claveIdempotencia` (es el mecanismo del modo offline, que

@@ -29,18 +29,19 @@ const carpetaIcons = join(raiz, 'public', 'icons')
 const fondoOrigen = join(raiz, 'public', 'SIMACHECK-FONDO.png')
 const fondoDestino = join(raiz, 'public', 'SIMACHECK-FONDO.webp')
 
-async function generarTransparente(destino, tamanio) {
-  await sharp(isotipo)
-    .resize(tamanio, tamanio, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toFile(destino)
-}
-
-// Fondo blanco sólido y el logo a `proporcionLogo` del lienzo. Es lo que pide
-// un ícono maskable: Android lo recorta a la forma del launcher (círculo,
-// squircle…), y con fondo transparente y el logo a tamaño completo los bordes
-// quedan cortados.
-async function generarSobreFondoBlanco(destino, tamanio, proporcionLogo) {
+// Fondo negro sólido y el logo a `proporcionLogo` del lienzo. Lo usan TODOS los
+// íconos; lo único que cambia entre ellos es cuánto aire lleva el logo.
+//
+// Negro y no blanco: es el fondo que se ve al agregar la app a la pantalla de
+// inicio, y un cuadrado blanco alrededor del isotipo rojo desentona contra
+// cualquier wallpaper — negro lo deja flotando en vez de mostrar una tarjeta.
+//
+// La `proporcionLogo` es lo que absorbe el recorte de cada plataforma: el
+// maskable va al 0,6 porque Android lo recorta a la forma del launcher (círculo,
+// squircle…) y a tamaño completo los bordes quedan cortados; el apple-touch al
+// 0,8 porque iOS sólo redondea las esquinas; los `any` al 1, porque ahí no
+// recorta nadie.
+async function generarSobreFondoNegro(destino, tamanio, proporcionLogo) {
   const logoTamanio = Math.round(tamanio * proporcionLogo)
   const capa = await sharp(isotipo)
     .resize(logoTamanio, logoTamanio, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -51,7 +52,7 @@ async function generarSobreFondoBlanco(destino, tamanio, proporcionLogo) {
       width: tamanio,
       height: tamanio,
       channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
     },
   })
     .composite([{ input: capa, gravity: 'center' }])
@@ -78,16 +79,26 @@ async function main() {
   }
   await mkdir(carpetaIcons, { recursive: true })
 
-  await generarTransparente(join(carpetaIcons, 'icon-192.png'), 192)
-  await generarTransparente(join(carpetaIcons, 'icon-512.png'), 512)
-  await generarSobreFondoBlanco(join(carpetaIcons, 'icon-maskable-512.png'), 512, 0.6)
-  // apple-touch-icon: iOS NO respeta la transparencia (pinta negro detrás), así
-  // que va sobre blanco sí o sí, y con menos aire que el maskable porque iOS
-  // recorta mucho menos (sólo redondea las esquinas).
-  await generarSobreFondoBlanco(join(raiz, 'public', 'apple-touch-icon.png'), 180, 0.8)
+  // Los dos `purpose: any`. Antes salían TRANSPARENTES y se veían mal justo
+  // donde más se miran: son los que usa Chrome en el diálogo de instalación y
+  // en el launcher cuando no aplica el maskable, y sobre el blanco que les pone
+  // el sistema el isotipo pierde sus partes blancas. Van a proporción 1 —el
+  // isotipo llena el lienzo, como antes— porque acá nadie recorta: lo único que
+  // cambió respecto de la versión transparente es que ahora hay fondo.
+  await generarSobreFondoNegro(join(carpetaIcons, 'icon-192.png'), 192, 1)
+  await generarSobreFondoNegro(join(carpetaIcons, 'icon-512.png'), 512, 1)
+  await generarSobreFondoNegro(join(carpetaIcons, 'icon-maskable-512.png'), 512, 0.6)
+  // apple-touch-icon: iOS no respeta un fondo transparente (lo rellena de
+  // negro por su cuenta), así que le damos ese mismo negro nosotros — mismo
+  // resultado, pero explícito en el archivo en vez de depender del relleno de
+  // iOS. Menos aire que el maskable porque iOS recorta mucho menos (sólo
+  // redondea las esquinas).
+  await generarSobreFondoNegro(join(raiz, 'public', 'apple-touch-icon.png'), 180, 0.8)
   // Favicon de la pestaña. PNG y no SVG porque el isotipo es un PNG y no hay
   // versión vectorial; 32 px es el tamaño que usan los navegadores de escritorio.
-  await generarTransparente(join(raiz, 'public', 'favicon-32.png'), 32)
+  // Con fondo por lo mismo que los de arriba: en una pestaña de tema claro, el
+  // isotipo transparente perdía el blanco.
+  await generarSobreFondoNegro(join(raiz, 'public', 'favicon-32.png'), 32, 1)
   await generarFondoWebp()
 
   console.log('Íconos generados desde public/simacheck-logo-icon.png:')
