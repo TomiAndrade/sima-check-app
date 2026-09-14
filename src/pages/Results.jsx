@@ -2,7 +2,7 @@ import Button from '../components/Button'
 import { MODOS } from '../core/modo'
 import { motivoBloqueo } from '../core/reintentos'
 
-export default function Results({ usuario, module: mod, modo = MODOS.alumno, result, enviando, errorEnvio, onReintentarEnvio, onRetry, onGoToModules, onHome }) {
+export default function Results({ usuario, module: mod, modo = MODOS.alumno, result, enviando, errorEnvio, incorrectas = [], onRepasar, onReintentarEnvio, onRetry, onGoToModules, onHome }) {
   // El aprobado/desaprobado sale de `aprobada` (el backend congela el umbral
   // por sesión, ver Sesion.umbralAprobacion) — nunca se recalcula contra un
   // 70 hardcodeado del lado del cliente. Vale igual en modo demo: lo corrige el
@@ -10,6 +10,10 @@ export default function Results({ usuario, module: mod, modo = MODOS.alumno, res
   const aprobada = result?.aprobada
   const esDemo = modo === MODOS.invitado
   const bloqueoReintento = motivoBloqueo(result?.reintentos)
+  // El repaso se ofrece apruebe o no: lo que importa es que se vaya sabiendo lo
+  // que no sabía. Sin ninguna incorrecta no hay nada que mostrar, y ahí el botón
+  // no va — una pantalla de repaso vacía no es un premio, es una pantalla vacía.
+  const hayRepaso = incorrectas.length > 0
 
   const feedbackMsg = result
     ? aprobada
@@ -81,7 +85,15 @@ export default function Results({ usuario, module: mod, modo = MODOS.alumno, res
 
       {!enviando && !errorEnvio && result && (
         <div className="space-y-3">
-          <Button variant="primary" onClick={onGoToModules} fullWidth>
+          {/* Primero y en primario, incluso por encima de salir: es la parte
+              formativa de haber rendido, y si queda como última opción gris no
+              la toca nadie. */}
+          {hayRepaso && (
+            <Button variant="primary" onClick={onRepasar} fullWidth>
+              Ver qué fallé ({incorrectas.length})
+            </Button>
+          )}
+          <Button variant={hayRepaso ? 'secondary' : 'primary'} onClick={onGoToModules} fullWidth>
             {esDemo ? 'Probar otra' : 'Mis capacitaciones'}
           </Button>
           {/* Reintentar es SÓLO para quien desaprobó. Aprobado, el módulo ya
