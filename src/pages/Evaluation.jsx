@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import QuestionCard from '../components/QuestionCard'
 import ProgressBar from '../components/ProgressBar'
-import Button from '../components/Button'
 
 export default function Evaluation({ usuario, module: mod, questions, onFinish, onBack }) {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -14,20 +13,28 @@ export default function Evaluation({ usuario, module: mod, questions, onFinish, 
   const currentAnswer = answers[current.id]
   const isLast = currentIndex === questions.length - 1
 
+  // Tocar una opción ES la respuesta: no hay confirmación ni botón de siguiente.
+  // La opción queda definitiva y se avanza solo.
+  //
+  // El guard de arriba es lo que hace cumplir "definitiva": una pregunta ya
+  // contestada ignora cualquier toque posterior. Se chequea contra
+  // `answers[current.id]` y no contra un booleano suelto, porque la clave es la
+  // PREGUNTA — un flag por índice se desincroniza apenas el índice avanza y
+  // puede terminar bloqueando (o dejando pasar) la pregunta equivocada.
   const handleSelect = (answer) => {
-    setAnswers((prev) => ({ ...prev, [current.id]: answer }))
-  }
+    if (currentAnswer !== undefined) return
 
-  const handleNext = () => {
+    // Se arma el objeto completo acá en vez de leer `answers` después del
+    // setState: el de la última pregunta se le pasa a onFinish en este mismo
+    // tick, y el state todavía no está actualizado.
+    const siguientes = { ...answers, [current.id]: answer }
+    setAnswers(siguientes)
+
     if (isLast) {
-      onFinish(answers)
+      onFinish(siguientes)
     } else {
       setCurrentIndex((i) => i + 1)
     }
-  }
-
-  const handlePrev = () => {
-    if (currentIndex > 0) setCurrentIndex((i) => i - 1)
   }
 
   return (
@@ -43,29 +50,21 @@ export default function Evaluation({ usuario, module: mod, questions, onFinish, 
             Cancelar
           </button>
         </div>
-        {/* answered=currentIndex: la barra avanza al pasar a la siguiente pregunta */}
+        {/* answered=currentIndex: como se avanza al responder, el índice actual
+            ES la cantidad de preguntas ya contestadas. */}
         <ProgressBar questionNum={currentIndex + 1} answered={currentIndex} total={questions.length} />
       </div>
 
-      {/* Question */}
-      <div className="flex-1 overflow-y-auto px-6 pt-6 pb-4">
+      {/* Pregunta. No hay footer: se fue con el botón de siguiente, y con él el
+          de volver a la pregunta anterior — sin confirmación no hay nada que
+          editar ahí atrás, mostrarla de nuevo sólo invitaría a intentar
+          cambiar una respuesta que ya es definitiva. */}
+      <div className="flex-1 overflow-y-auto px-6 pt-6 pb-6">
         <QuestionCard
           question={current}
           selectedAnswer={currentAnswer}
           onSelect={handleSelect}
         />
-      </div>
-
-      {/* Footer */}
-      <div className="px-6 pb-6 pt-4 border-t border-slate-200 flex gap-3 flex-shrink-0">
-        {currentIndex > 0 && (
-          <Button variant="secondary" onClick={handlePrev} className="flex-shrink-0">
-            ‹
-          </Button>
-        )}
-        <Button variant="primary" onClick={handleNext} disabled={!currentAnswer} fullWidth>
-          {isLast ? 'Ver resultado' : 'Siguiente pregunta'}
-        </Button>
       </div>
     </div>
   )

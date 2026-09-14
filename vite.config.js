@@ -38,7 +38,11 @@ export default defineConfig({
         short_name: 'SIMA CHECK',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#ffffff',
+        // Negro, igual que el fondo de los íconos: es el color del splash
+        // que el sistema pinta al abrir la PWA, con el ícono encima. En
+        // blanco, un ícono de fondo negro entraba con un marco de contraste
+        // feo justo en el primer frame de la app.
+        background_color: '#000000',
         theme_color: '#dc2626',
         lang: 'es',
         icons: [
