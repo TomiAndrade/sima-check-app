@@ -50,7 +50,12 @@ function Respuesta({ pregunta, valor, rotulo, tono }) {
 export default function Repaso({ module: mod, incorrectas, sinVerificar = 0, onVolver }) {
   const hayIncorrectas = incorrectas.length > 0
   return (
-    <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+    // El alto lo pone el LAYOUT (min-h-0 + max-h-full), no un `max-h-[92vh]`
+    // propio: el logo y los banners viven arriba de esta card, así que fijarse
+    // una fracción del viewport por su cuenta la hacía sumar más que la
+    // pantalla y quedar cortada arriba y abajo. Ver el comentario del
+    // contenedor en App.jsx. El scroll pasa adentro, en el div de abajo.
+    <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-h-0 max-h-full flex flex-col">
       <div className="px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
         <p className="text-red-600 font-semibold text-sm">{mod.nombre}</p>
         <h2 className="text-slate-900 text-xl font-bold mt-1">

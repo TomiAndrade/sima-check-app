@@ -11,7 +11,7 @@
 // rendir), y un cartel permanente en ese color se lee como un error.
 export default function BannerDemo({ onSalir }) {
   return (
-    <div className="w-full max-w-xl bg-amber-50 border border-amber-300 rounded-xl px-4 py-2.5 flex items-center gap-3">
+    <div className="w-full max-w-xl flex-shrink-0 bg-amber-50 border border-amber-300 rounded-xl px-4 py-2.5 flex items-center gap-3">
       <span className="text-amber-600 text-lg flex-shrink-0">●</span>
       <p className="text-amber-800 text-sm leading-snug flex-1">
         <span className="font-bold">Modo demostración.</span>{' '}

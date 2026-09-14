@@ -189,12 +189,26 @@ export default function App() {
       className="fixed inset-0 flex items-center justify-center p-4 overflow-hidden"
       style={{ backgroundImage: "url('/SIMACHECK-FONDO.webp')", backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
-      <div className="relative z-10 w-full flex flex-col items-center justify-center gap-5">
+      {/* h-full + min-h-0: esta columna mide EXACTAMENTE el alto del viewport
+          (se lo da el `fixed inset-0` del padre) y deja que sus hijos encojan.
+          Sin eso, la card se limitaba por su cuenta a 92vh y encima de ella
+          iban el logo (64px), el gap y el padding del padre — la suma pasaba de
+          100vh, y como el padre es overflow-hidden lo que sobraba se cortaba
+          arriba y abajo sin forma de scrollear. Así, en cambio, el reparto lo
+          hace flex: el logo y los banners se quedan con lo suyo y la card se
+          come lo que queda, scrolleando por dentro.
+
+          `h-full` y no `h-[100dvh]`: con el padre en `fixed inset-0` esto ya es
+          el alto visible real, así que no hay que pelearse con lo que `vh` mide
+          en Chrome Android cuando la barra de direcciones aparece y desaparece. */}
+      <div className="relative z-10 w-full h-full min-h-0 flex flex-col items-center justify-center gap-5">
         {/* El logo horizontal, no el isotipo: acá hay ancho de sobra y se lee
             la marca completa. La palabra "CHECK" es BLANCA, así que este archivo
             depende del fondo industrial de atrás — sobre una superficie clara
             desaparecería media marca. Por eso vive fuera de la card. */}
-        <img src="/simacheck-logo.png" alt="SIMA CHECK" className="h-16 w-auto object-contain drop-shadow-md" />
+        {/* flex-shrink-0 acá y en los banners: son alturas fijas que no se
+            achican. Lo que cede es la card. */}
+        <img src="/simacheck-logo.png" alt="SIMA CHECK" className="h-16 w-auto object-contain drop-shadow-md flex-shrink-0" />
         {/* El banner de demo se muestra en TODAS las pantallas del modo, la
             evaluación incluida — ver el comentario de BannerDemo. */}
         {esDemo && step !== STEPS.usuario && <BannerDemo onSalir={goHome} />}
