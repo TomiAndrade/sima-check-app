@@ -27,7 +27,7 @@ export default function Results({ usuario, module: mod, modo = MODOS.alumno, res
     : null
 
   return (
-    <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8">
+    <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8 max-h-full overflow-y-auto">
       {enviando && (
         <div className="w-40 h-40 rounded-full border-8 border-slate-300 bg-slate-50 flex flex-col items-center justify-center mb-6 mx-auto text-center px-4">
           <span className="text-slate-500 text-sm font-bold leading-snug">Enviando resultado...</span>

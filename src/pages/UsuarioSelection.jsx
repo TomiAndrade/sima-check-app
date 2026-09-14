@@ -96,7 +96,7 @@ export default function UsuarioSelection({ onSelect }) {
 
   if (vista === 'invitado') {
     return (
-      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8">
+      <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8 max-h-full overflow-y-auto">
         <div className="space-y-5">
           <div>
             <label className="block text-slate-700 text-lg font-bold mb-1 text-center">
@@ -149,7 +149,7 @@ export default function UsuarioSelection({ onSelect }) {
   }
 
   return (
-    <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8">
+    <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl shadow-2xl p-8 max-h-full overflow-y-auto">
       <div className="space-y-5">
         <div>
           <label className="block text-slate-700 text-lg font-bold mb-2 text-center">

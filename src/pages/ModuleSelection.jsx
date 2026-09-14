@@ -28,7 +28,7 @@ export default function ModuleSelection({ usuario, modo = MODOS.alumno, onSelect
   }
 
   return (
-    <div className="w-full max-w-xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="w-full max-w-xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-h-0 max-h-full flex flex-col">
       {/* Header */}
       <div className="px-6 pt-6 pb-5 border-b border-slate-200 flex-shrink-0">
         <button onClick={onBack} className="text-red-600 text-base font-semibold mb-4 flex items-center gap-1 touch-manipulation">

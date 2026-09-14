@@ -118,7 +118,7 @@ export default function Evaluation({ usuario, module: mod, questions, onCorregir
   }
 
   return (
-    <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden min-h-0 max-h-full flex flex-col">
       {/* Header */}
       <div className="px-6 pt-5 pb-4 border-b border-slate-200 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
